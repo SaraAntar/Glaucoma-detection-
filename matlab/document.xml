@@ -1,0 +1,401 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:pPr><w:pStyle w:val="code"/></w:pPr><w:r><w:t><![CDATA[classdef Glaucoma_Detection < matlab.apps.AppBase
+
+    % Properties that correspond to app components
+    properties (Access = public)
+        figure1                     matlab.ui.Figure
+        DiscSegmentationLabel       matlab.ui.control.Label
+        CupSegmentationLabel        matlab.ui.control.Label
+        BloodVesselsRemovedLabel    matlab.ui.control.Label
+        IlluminationCorrectedLabel  matlab.ui.control.Label
+        GraylevelImageLabel         matlab.ui.control.Label
+        OriginalImageLabel          matlab.ui.control.Label
+        GlaucomaDetectionLabel      matlab.ui.control.Label
+        uibuttongroup2              matlab.ui.container.ButtonGroup
+        EditField_2                 matlab.ui.control.EditField
+        EditField                   matlab.ui.control.EditField
+        Lamp                        matlab.ui.control.Lamp
+        CDRLabel                    matlab.ui.control.Label
+        uploadimage                 matlab.ui.control.Button
+        addition                    matlab.ui.control.Button
+        axes6                       matlab.ui.control.UIAxes
+        axes4                       matlab.ui.control.UIAxes
+        axes5                       matlab.ui.control.UIAxes
+        axes3                       matlab.ui.control.UIAxes
+        axes2                       matlab.ui.control.UIAxes
+        axes1                       matlab.ui.control.UIAxes
+    end
+
+    
+    methods (Access = private)
+    end
+
+    % Callbacks that handle component events
+    methods (Access = private)
+
+        % Code that executes after component creation
+        function untitled7_OpeningFcn(app, varargin)
+            % --- Executes just before untitled7 is made visible.
+            
+            % Ensure that the app appears on screen when run
+            movegui(app.figure1, 'onscreen');
+            
+            % Create GUIDE-style callback args - Added by Migration Tool
+            [hObject, eventdata, handles] = convertToGUIDECallbackArguments(app); %#ok<ASGLU>
+            
+            % This function has no output args, see Oapp.SubtractionButtonutputFcn.
+            % hObject    handle to figure
+            % eventdata  reserved - to be defined in a future version of MATLAB
+            % handles    structure with handles and user data (see GUIDATA)
+            % varargin   command line arguments to untitled7 (see VARARGIN)
+            
+            % Choose default command line output for untitled7
+            handles.output = hObject;
+            
+            % Update handles structure
+            guidata(hObject, handles);
+        end
+
+        % Button pushed function: addition
+        function addition_Callback(app, event)
+            a = getappdata(0,'a');
+            gray_image = im2gray(a);
+            imshow(gray_image, 'Parent',app.axes2);
+
+
+            se = strel('disk', 30); % Adjust the structuring element based on the image characteristics
+            background = imopen(gray_image, se);
+
+            % Step 3: Subtract the estimated background from the grayscale image
+            illumination_corrected = imsubtract(gray_image, background);
+
+            % Step 4: Add a fixed DC level (adjust as needed)
+            
+            fixed_dc_level = 30;
+            illumination_corrected = illumination_corrected + fixed_dc_level;
+            imshow(illumination_corrected, 'Parent', app.axes3);
+
+
+
+            se2 = strel('disk', 20);
+            bv_removed = imclose(illumination_corrected, se2);
+            imshow(bv_removed, 'Parent',app.axes4);
+               
+            
+            normImage = im2double(bv_removed);
+
+            % cup segmentation
+            cup = imbinarize(normImage, 0.45);
+            imshow(cup, 'Parent',app.axes5);
+
+            disc = imbinarize(normImage, 0.35);
+            imshow(disc, 'Parent',app.axes6);
+
+
+
+            stats = regionprops(cup, 'Centroid', 'Area');
+
+            % Find the circle with the maximum area (assuming there is only one circle)
+            [maxArea, index] = max([stats.Area]);
+
+            % Calculate the radius using the area of the circle (A = pi * r^2)
+            radius = sqrt(maxArea / pi);
+
+            % Calculate the area of the circle
+            cup_area = pi * radius^2;
+
+            stats = regionprops(disc, 'Centroid', 'Area');
+
+            % Find the circle with the maximum area (assuming there is only one circle)
+            [maxArea2, index2] = max([stats.Area]);
+
+            % Calculate the radius using the area of the circle (A = pi * r^2)
+            radius2 = sqrt(maxArea2 / pi);
+
+            % Calculate the area of the circle
+            disc_area = pi * radius2^2;
+            % Calculate the ratio of the area of the cup to the disc
+            ratio = cup_area / disc_area;
+            text1 = sprintf(num2str(ratio));
+            app.EditField.Value = text1;
+
+            if ratio < 0.5 && ratio > 0
+                app.Lamp.Color= 'green';
+                app.EditField_2.Value = "Healthy Eye";
+             
+             elseif ratio >= 0.5 
+                app.Lamp.Color='red';
+                app.EditField_2.Value = "Glaucoma detected";
+                
+             end
+
+        end
+
+        % Button pushed function: uploadimage
+        function uploadimage_Callback(app, event)
+            % --- Executes on button press in uploadimage.
+            
+            % Create GUIDE-style callback args - Added by Migration Tool
+            [hObject, eventdata, handles] = convertToGUIDECallbackArguments(app, event); %#ok<ASGLU>
+            
+            % hObject    handle to uploadimage (see GCBO)
+            % eventdata  reserved - to be defined in a future version of MATLAB
+            % handles    structure with handles and user data (see GUIDATA)
+            a = uigetfile('.jpg');
+            a = imread(a);
+            axes(handles.axes1);
+            imshow(a);
+            setappdata(0, 'a', a);
+            
+           
+        end
+
+        % Callback function
+        function AdjustImageButtonPushed(app, event)
+            [hObject, eventdata, handles] = convertToGUIDECallbackArguments(app, event); %#ok<ASGLU>
+            a = getappdata(0,'a');
+            RGB1 = imadjust(a,[.2 .3 0; .6 .7 1],[]);
+            axes(handles.axes1);
+            imshow(RGB1)
+
+            b = getappdata(0,'b');
+            RGB2 = imadjust(b,[.2 .3 0; .6 .7 1],[]);
+            axes(handles.axes2);
+            imshow(RGB2)
+        end
+    end
+
+    % Component initialization
+    methods (Access = private)
+
+        % Create UIFigure and components
+        function createComponents(app)
+
+            % Create figure1 and hide until all components are created
+            app.figure1 = uifigure('Visible', 'off');
+            app.figure1.Color = [0.4 0.5294 0.8784];
+            app.figure1.Position = [680 623 942 730];
+            app.figure1.Name = 'untitled7';
+            app.figure1.Resize = 'off';
+            app.figure1.HandleVisibility = 'callback';
+            app.figure1.Tag = 'figure1';
+
+            % Create axes1
+            app.axes1 = uiaxes(app.figure1);
+            app.axes1.XTick = [];
+            app.axes1.YTick = [];
+            app.axes1.Color = 'none';
+            app.axes1.FontSize = 12;
+            app.axes1.NextPlot = 'replace';
+            app.axes1.Tag = 'axes1';
+            app.axes1.Position = [24 437 290 184];
+
+            % Create axes2
+            app.axes2 = uiaxes(app.figure1);
+            app.axes2.XTick = [];
+            app.axes2.YTick = [];
+            app.axes2.Color = 'none';
+            app.axes2.FontSize = 12;
+            app.axes2.NextPlot = 'replace';
+            app.axes2.Tag = 'axes2';
+            app.axes2.Position = [324 437 289 184];
+
+            % Create axes3
+            app.axes3 = uiaxes(app.figure1);
+            app.axes3.XTick = [];
+            app.axes3.YTick = [];
+            app.axes3.Color = 'none';
+            app.axes3.FontSize = 12;
+            app.axes3.NextPlot = 'replace';
+            app.axes3.Tag = 'axes3';
+            app.axes3.Position = [629 437 283 184];
+
+            % Create axes5
+            app.axes5 = uiaxes(app.figure1);
+            app.axes5.XTick = [];
+            app.axes5.YTick = [];
+            app.axes5.Color = 'none';
+            app.axes5.Position = [326 210 300 197];
+
+            % Create axes4
+            app.axes4 = uiaxes(app.figure1);
+            app.axes4.XTick = [];
+            app.axes4.YTick = [];
+            app.axes4.Color = 'none';
+            app.axes4.Position = [28 210 300 197];
+
+            % Create axes6
+            app.axes6 = uiaxes(app.figure1);
+            app.axes6.XTick = [];
+            app.axes6.YTick = [];
+            app.axes6.Color = 'none';
+            app.axes6.Position = [634 210 300 197];
+
+            % Create uibuttongroup2
+            app.uibuttongroup2 = uibuttongroup(app.figure1);
+            app.uibuttongroup2.BackgroundColor = [0.549 0.6314 0.8784];
+            app.uibuttongroup2.Tag = 'uibuttongroup2';
+            app.uibuttongroup2.FontSize = 10.6666666666667;
+            app.uibuttongroup2.Position = [186 31 614 151];
+
+            % Create addition
+            app.addition = uibutton(app.uibuttongroup2, 'push');
+            app.addition.ButtonPushedFcn = createCallbackFcn(app, @addition_Callback, true);
+            app.addition.Tag = 'addition';
+            app.addition.BackgroundColor = [0.651 0.651 0.651];
+            app.addition.FontName = 'Times New Roman';
+            app.addition.FontSize = 18;
+            app.addition.FontWeight = 'bold';
+            app.addition.FontColor = [1 1 1];
+            app.addition.Position = [90 19 160 51];
+            app.addition.Text = 'Detect Glaucoma';
+
+            % Create uploadimage
+            app.uploadimage = uibutton(app.uibuttongroup2, 'push');
+            app.uploadimage.ButtonPushedFcn = createCallbackFcn(app, @uploadimage_Callback, true);
+            app.uploadimage.Tag = 'uploadimage';
+            app.uploadimage.BackgroundColor = [0 0.451 0.7412];
+            app.uploadimage.FontName = 'Times New Roman';
+            app.uploadimage.FontSize = 18;
+            app.uploadimage.FontWeight = 'bold';
+            app.uploadimage.FontColor = [1 1 1];
+            app.uploadimage.Position = [90 82 160 49];
+            app.uploadimage.Text = 'Upload Pic';
+
+            % Create CDRLabel
+            app.CDRLabel = uilabel(app.uibuttongroup2);
+            app.CDRLabel.FontSize = 16;
+            app.CDRLabel.FontWeight = 'bold';
+            app.CDRLabel.FontColor = [1 1 1];
+            app.CDRLabel.Position = [313 97 53 22];
+            app.CDRLabel.Text = 'CDR =';
+
+            % Create Lamp
+            app.Lamp = uilamp(app.uibuttongroup2);
+            app.Lamp.Position = [346 34 20 20];
+
+            % Create EditField
+            app.EditField = uieditfield(app.uibuttongroup2, 'text');
+            app.EditField.Editable = 'off';
+            app.EditField.FontName = 'Times New Roman';
+            app.EditField.FontSize = 16;
+            app.EditField.FontWeight = 'bold';
+            app.EditField.Enable = 'off';
+            app.EditField.Position = [379 93 138 30];
+
+            % Create EditField_2
+            app.EditField_2 = uieditfield(app.uibuttongroup2, 'text');
+            app.EditField_2.Editable = 'off';
+            app.EditField_2.FontName = 'Times New Roman';
+            app.EditField_2.FontSize = 16;
+            app.EditField_2.FontWeight = 'bold';
+            app.EditField_2.Enable = 'off';
+            app.EditField_2.Position = [379 28 154 33];
+
+            % Create GlaucomaDetectionLabel
+            app.GlaucomaDetectionLabel = uilabel(app.figure1);
+            app.GlaucomaDetectionLabel.FontName = 'Times New Roman';
+            app.GlaucomaDetectionLabel.FontSize = 30;
+            app.GlaucomaDetectionLabel.FontWeight = 'bold';
+            app.GlaucomaDetectionLabel.FontColor = [1 1 1];
+            app.GlaucomaDetectionLabel.Position = [346 673 269 40];
+            app.GlaucomaDetectionLabel.Text = 'Glaucoma Detection';
+
+            % Create OriginalImageLabel
+            app.OriginalImageLabel = uilabel(app.figure1);
+            app.OriginalImageLabel.FontName = 'Times New Roman';
+            app.OriginalImageLabel.FontSize = 16;
+            app.OriginalImageLabel.FontWeight = 'bold';
+            app.OriginalImageLabel.FontColor = [1 1 1];
+            app.OriginalImageLabel.Position = [122 632 109 22];
+            app.OriginalImageLabel.Text = 'Original Image';
+
+            % Create GraylevelImageLabel
+            app.GraylevelImageLabel = uilabel(app.figure1);
+            app.GraylevelImageLabel.FontName = 'Times New Roman';
+            app.GraylevelImageLabel.FontSize = 16;
+            app.GraylevelImageLabel.FontWeight = 'bold';
+            app.GraylevelImageLabel.FontColor = [1 1 1];
+            app.GraylevelImageLabel.Position = [417 632 118 22];
+            app.GraylevelImageLabel.Text = 'Graylevel Image';
+
+            % Create IlluminationCorrectedLabel
+            app.IlluminationCorrectedLabel = uilabel(app.figure1);
+            app.IlluminationCorrectedLabel.FontName = 'Times New Roman';
+            app.IlluminationCorrectedLabel.FontSize = 16;
+            app.IlluminationCorrectedLabel.FontWeight = 'bold';
+            app.IlluminationCorrectedLabel.FontColor = [1 1 1];
+            app.IlluminationCorrectedLabel.Position = [702 632 163 22];
+            app.IlluminationCorrectedLabel.Text = 'Illumination Corrected';
+
+            % Create BloodVesselsRemovedLabel
+            app.BloodVesselsRemovedLabel = uilabel(app.figure1);
+            app.BloodVesselsRemovedLabel.FontName = 'Times New Roman';
+            app.BloodVesselsRemovedLabel.FontSize = 16;
+            app.BloodVesselsRemovedLabel.FontWeight = 'bold';
+            app.BloodVesselsRemovedLabel.FontColor = [1 1 1];
+            app.BloodVesselsRemovedLabel.Position = [96 406 164 22];
+            app.BloodVesselsRemovedLabel.Text = 'Blood Vessels Removed';
+
+            % Create CupSegmentationLabel
+            app.CupSegmentationLabel = uilabel(app.figure1);
+            app.CupSegmentationLabel.FontName = 'Times New Roman';
+            app.CupSegmentationLabel.FontSize = 16;
+            app.CupSegmentationLabel.FontWeight = 'bold';
+            app.CupSegmentationLabel.FontColor = [1 1 1];
+            app.CupSegmentationLabel.Position = [417 406 132 22];
+            app.CupSegmentationLabel.Text = 'Cup Segmentation';
+
+            % Create DiscSegmentationLabel
+            app.DiscSegmentationLabel = uilabel(app.figure1);
+            app.DiscSegmentationLabel.FontName = 'Times New Roman';
+            app.DiscSegmentationLabel.FontSize = 16;
+            app.DiscSegmentationLabel.FontWeight = 'bold';
+            app.DiscSegmentationLabel.FontColor = [1 1 1];
+            app.DiscSegmentationLabel.Position = [718 406 132 22];
+            app.DiscSegmentationLabel.Text = 'Disc Segmentation';
+
+            % Show the figure after all components are created
+            app.figure1.Visible = 'on';
+        end
+    end
+
+    % App creation and deletion
+    methods (Access = public)
+
+        % Construct app
+        function app = Glaucoma_Detection(varargin)
+
+            runningApp = getRunningApp(app);
+
+            % Check for running singleton app
+            if isempty(runningApp)
+
+                % Create UIFigure and components
+                createComponents(app)
+
+                % Register the app with App Designer
+                registerApp(app, app.figure1)
+
+                % Execute the startup function
+                runStartupFcn(app, @(app)untitled7_OpeningFcn(app, varargin{:}))
+            else
+
+                % Focus the running singleton app
+                figure(runningApp.figure1)
+
+                app = runningApp;
+            end
+
+            if nargout == 0
+                clear app
+            end
+        end
+
+        % Code that executes before app deletion
+        function delete(app)
+
+            % Delete UIFigure when app is deleted
+            delete(app.figure1)
+        end
+    end
+end]]></w:t></w:r></w:p></w:body></w:document>
